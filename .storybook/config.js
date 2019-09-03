@@ -1,7 +1,7 @@
 import { configure } from '@storybook/react';
 
 function loadStories() {
-  require('../stories');
+  require('../src/components/pagination/pagination.story.js');
 }
 
 configure(loadStories, module);
