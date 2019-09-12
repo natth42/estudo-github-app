@@ -1,22 +1,34 @@
 import React from 'react';
 import AppContent from './components/app-content';
-import './App.css';
+import './App.css'
+
+const initialState = {
+    repos: [],
+    pagination: {
+        total: 1,
+        activePage: 1
+    }
+};
+
+let link;
+let totalPagesMatch;
 
 class App extends React.PureComponent {
   constructor() {
       super()
       this.state = {
           userInfo: null,
-          repos: [],
-          starred: [],
+          repos: initialState,
+          starred: initialState,
           isFetching: false,
       }
+      this.perPage = 3
   }
 
-  getGithubUrl (username, type) {
+  getGithubUrl (username, type, page = 0) {
       const internalUsername = username ? `/${username}` : `` 
       const internalType = type ? `/${type}` : `` 
-      return `https://api.github.com/users${internalUsername}${internalType}`
+      return `https://api.github.com/users${internalUsername}${internalType}?per_page=${this.perPage}&page=${page}`
   }
 
   handleSearch(e) {
@@ -38,8 +50,8 @@ class App extends React.PureComponent {
                       followers: data.followers,
                       following: data.following
                   },
-                  repos: [],
-                  starred: []
+                  repos: initialState,
+                  starred: initialState
               })
           })
           .then(() => {
@@ -48,19 +60,29 @@ class App extends React.PureComponent {
       }
   }
 
-  getRepos(type) {
-      const { login } = this.state.userInfo
-      fetch(this.getGithubUrl(login, type))
-      .then(resposta => resposta.json())
-      .then(data => {
+  getRepos(type, page) {
+        const { login } = this.state.userInfo
+        fetch(this.getGithubUrl(login, type, page))
+        .then(resposta => {
+            link = resposta.headers.get("Link") || ''
+            totalPagesMatch = link.match(/&page=(\d+)>; rel="last/)
+            return resposta.json()
+        }).then(data => {
           this.setState({
-              [type]: data.map((repo) => ({
-                  name: repo.name,
-                  link: repo.html_url
-              }))
+              [type]: {
+                repos: data.map((repo) => ({
+                    name: repo.name,
+                    link: repo.html_url
+                })),
+                pagination: {
+                    total: totalPagesMatch ? +totalPagesMatch[1] : +this.state[type].pagination,
+                    activePage: page
+                }
+              }
           })
-      })
+        })
   }
+
   render() {
     return (
       <AppContent 
@@ -68,6 +90,7 @@ class App extends React.PureComponent {
           handleSearch={(e) => this.handleSearch(e)} 
           getRepos={(e) => this.getRepos('repos')}
           getStarred={(e) => this.getRepos('starred')}
+          handlePagination={(type, page) => this.getRepos(type, page)}
       />
     )
   }
